@@ -1,0 +1,791 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum OrderStatus {
+  PENDING_CONFIRMATION
+  PENDING_PICKUP
+  PENDING_DELIVERY
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+enum VerificationCodeType {
+  REGISTER
+  FORGOT_PASSWORD
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum HTTPMethod {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+  OPTIONS
+  HEAD
+}
+
+// ============================================================
+// USER
+// ============================================================
+
+model User {
+  id          Int        @id @default(autoincrement())
+  email       String     @unique
+  name        String
+  password    String
+  phoneNumber String
+  avatar      String?
+  totpSecret  String?
+  status      UserStatus @default(ACTIVE)
+
+  roleId Int
+  role   Role @relation("RoleUsers", fields: [roleId], references: [id])
+
+  createdById Int?
+  createdBy   User? @relation("UserCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+
+  createdUsers User[] @relation("UserCreatedBy")
+  updatedUsers User[] @relation("UserUpdatedBy")
+
+  userTranslations UserTranslation[]
+
+  refreshTokens RefreshToken[]
+
+  cartItems CartItem[]
+
+  orders Order[]
+
+  reviews Review[]
+
+  sentMessages     Message[] @relation("MessageFromUser")
+  receivedMessages Message[] @relation("MessageToUser")
+
+  createdLanguages Language[] @relation("LanguageCreatedBy")
+  updatedLanguages Language[] @relation("LanguageUpdatedBy")
+
+  createdUserTranslations UserTranslation[] @relation("UserTranslationCreatedBy")
+  updatedUserTranslations UserTranslation[] @relation("UserTranslationUpdatedBy")
+
+  createdPermissions Permission[] @relation("PermissionCreatedBy")
+  updatedPermissions Permission[] @relation("PermissionUpdatedBy")
+
+  createdRoles Role[] @relation("RoleCreatedBy")
+  updatedRoles Role[] @relation("RoleUpdatedBy")
+
+  createdProducts Product[] @relation("ProductCreatedBy")
+  updatedProducts Product[] @relation("ProductUpdatedBy")
+
+  createdProductTranslations ProductTranslation[] @relation("ProductTranslationCreatedBy")
+  updatedProductTranslations ProductTranslation[] @relation("ProductTranslationUpdatedBy")
+
+  createdCategories Category[] @relation("CategoryCreatedBy")
+  updatedCategories Category[] @relation("CategoryUpdatedBy")
+
+  createdCategoryTranslations CategoryTranslation[] @relation("CategoryTranslationCreatedBy")
+  updatedCategoryTranslations CategoryTranslation[] @relation("CategoryTranslationUpdatedBy")
+
+  createdVariants Variant[] @relation("VariantCreatedBy")
+  updatedVariants Variant[] @relation("VariantUpdatedBy")
+
+  createdVariantOptions VariantOption[] @relation("VariantOptionCreatedBy")
+  updatedVariantOptions VariantOption[] @relation("VariantOptionUpdatedBy")
+
+  createdSkus SKU[] @relation("SkuCreatedBy")
+  updatedSkus SKU[] @relation("SkuUpdatedBy")
+
+  createdBrands Brand[] @relation("BrandCreatedBy")
+  updatedBrands Brand[] @relation("BrandUpdatedBy")
+
+  createdBrandTranslations BrandTranslation[] @relation("BrandTranslationCreatedBy")
+  updatedBrandTranslations BrandTranslation[] @relation("BrandTranslationUpdatedBy")
+
+  createdOrders Order[] @relation("OrderCreatedBy")
+  updatedOrders Order[] @relation("OrderUpdatedBy")
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([roleId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// LANGUAGE
+// ============================================================
+
+model Language {
+  id   Int    @id @default(autoincrement())
+  name String
+  code String @unique
+
+  createdById Int?
+  createdBy   User? @relation("LanguageCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("LanguageUpdatedBy", fields: [updatedById], references: [id])
+
+  userTranslations UserTranslation[]
+
+  productTranslations ProductTranslation[]
+
+  categoryTranslations CategoryTranslation[]
+
+  brandTranslations BrandTranslation[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// USER TRANSLATION
+// ============================================================
+
+model UserTranslation {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  languageId Int
+  language   Language @relation(fields: [languageId], references: [id])
+
+  address     String?
+  description String?
+
+  createdById Int?
+  createdBy   User? @relation("UserTranslationCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("UserTranslationUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, languageId])
+  @@index([userId])
+  @@index([languageId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// VERIFICATION CODE
+// ============================================================
+
+model VerificationCode {
+  id Int @id @default(autoincrement())
+
+  email String
+  code  String
+  type  VerificationCodeType
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, code, type])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// REFRESH TOKEN
+// ============================================================
+
+model RefreshToken {
+  token String @unique
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// PERMISSION
+// ============================================================
+
+model Permission {
+  id          Int        @id @default(autoincrement())
+  name        String
+  description String
+  path        String
+  method      HTTPMethod
+
+  createdById Int?
+  createdBy   User? @relation("PermissionCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("PermissionUpdatedBy", fields: [updatedById], references: [id])
+
+  roles PermissionsRoles[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// ROLE
+// ============================================================
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String
+  isActive    Boolean @default(true)
+
+  users User[] @relation("RoleUsers")
+
+  permissions PermissionsRoles[]
+
+  createdById Int?
+  createdBy   User? @relation("RoleCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("RoleUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// PRODUCT
+// ============================================================
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  base_price    Float
+  virtual_price Float
+
+  brandId Int
+  brand   Brand @relation(fields: [brandId], references: [id])
+
+  images String[]
+
+  createdById Int?
+  createdBy   User? @relation("ProductCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("ProductUpdatedBy", fields: [updatedById], references: [id])
+
+  translations ProductTranslation[]
+
+  categories ProductsCategories[]
+
+  variants Variant[]
+
+  skus SKU[]
+
+  reviews Review[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([brandId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// PRODUCT TRANSLATION
+// ============================================================
+
+model ProductTranslation {
+  id Int @id @default(autoincrement())
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  languageId Int
+  language   Language @relation(fields: [languageId], references: [id])
+
+  name        String
+  description String
+
+  createdById Int?
+  createdBy   User? @relation("ProductTranslationCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("ProductTranslationUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([productId, languageId])
+  @@index([productId])
+  @@index([languageId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// CATEGORY
+// ============================================================
+
+model Category {
+  id Int @id @default(autoincrement())
+
+  parentCategoryId Int?
+  parentCategory   Category?  @relation("CategoryParent", fields: [parentCategoryId], references: [id])
+  children         Category[] @relation("CategoryParent")
+
+  translations CategoryTranslation[]
+
+  products ProductsCategories[]
+
+  createdById Int?
+  createdBy   User? @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([parentCategoryId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// CATEGORY TRANSLATION
+// ============================================================
+
+model CategoryTranslation {
+  id Int @id @default(autoincrement())
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  languageId Int
+  language   Language @relation(fields: [languageId], references: [id])
+
+  name        String
+  description String
+
+  createdById Int?
+  createdBy   User? @relation("CategoryTranslationCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("CategoryTranslationUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([categoryId, languageId])
+  @@index([categoryId])
+  @@index([languageId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// VARIANT
+// ============================================================
+
+model Variant {
+  id Int @id @default(autoincrement())
+
+  name String
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  options VariantOption[]
+
+  createdById Int?
+  createdBy   User? @relation("VariantCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("VariantUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([productId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// VARIANT OPTION
+// ============================================================
+
+model VariantOption {
+  id Int @id @default(autoincrement())
+
+  value String
+
+  variantId Int
+  variant   Variant @relation(fields: [variantId], references: [id])
+
+  skus SkusVariantOptions[]
+
+  createdById Int?
+  createdBy   User? @relation("VariantOptionCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("VariantOptionUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([variantId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// SKU
+// ============================================================
+
+model SKU {
+  id Int @id @default(autoincrement())
+
+  value  String
+  price  Float
+  stock  Int
+  images String[]
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  variantOptions SkusVariantOptions[]
+
+  cartItems CartItem[]
+
+  snapshots ProductSKUSnapshot[]
+
+  createdById Int?
+  createdBy   User? @relation("SkuCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("SkuUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([productId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// BRAND
+// ============================================================
+
+model Brand {
+  id Int @id @default(autoincrement())
+
+  logo String
+
+  products Product[]
+
+  translations BrandTranslation[]
+
+  createdById Int?
+  createdBy   User? @relation("BrandCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("BrandUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// BRAND TRANSLATION
+// ============================================================
+
+model BrandTranslation {
+  id Int @id @default(autoincrement())
+
+  brandId Int
+  brand   Brand @relation(fields: [brandId], references: [id])
+
+  languageId Int
+  language   Language @relation(fields: [languageId], references: [id])
+
+  name        String
+  description String
+
+  createdById Int?
+  createdBy   User? @relation("BrandTranslationCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("BrandTranslationUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([brandId, languageId])
+  @@index([brandId])
+  @@index([languageId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// CART ITEM
+// ============================================================
+
+model CartItem {
+  id Int @id @default(autoincrement())
+
+  quantity Int
+
+  skuId Int
+  sku   SKU @relation(fields: [skuId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, skuId])
+  @@index([skuId])
+  @@index([userId])
+}
+
+// ============================================================
+// PRODUCT SKU SNAPSHOT
+// ============================================================
+
+model ProductSKUSnapshot {
+  id Int @id @default(autoincrement())
+
+  productName String
+  price       Float
+  images      String[]
+  skuValue    String
+
+  skuId Int
+  sku   SKU @relation(fields: [skuId], references: [id])
+
+  orderId Int
+  order   Order @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([skuId])
+  @@index([orderId])
+}
+
+// ============================================================
+// ORDER
+// ============================================================
+
+model Order {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  status OrderStatus
+
+  createdById Int?
+  createdBy   User? @relation("OrderCreatedBy", fields: [createdById], references: [id])
+
+  updatedById Int?
+  updatedBy   User? @relation("OrderUpdatedBy", fields: [updatedById], references: [id])
+
+  snapshots ProductSKUSnapshot[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// REVIEW
+// ============================================================
+
+model Review {
+  id Int @id @default(autoincrement())
+
+  content String
+  rating  Int
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// PAYMENT TRANSACTION
+// ============================================================
+
+model PaymentTransaction {
+  id Int @id @default(autoincrement())
+
+  gateway         String
+  transactionDate DateTime @default(now())
+  accountNumber   String
+  subAccount      String?
+
+  amountIn    Int @default(0)
+  amountOut   Int @default(0)
+  accumulated Int @default(0)
+
+  code               String?
+  transactionContent String?
+  referenceNumber    String?
+  body               String?
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionDate])
+}
+
+// ============================================================
+// MESSAGE
+// ============================================================
+
+model Message {
+  id Int @id @default(autoincrement())
+
+  fromUserId Int
+  fromUser   User @relation("MessageFromUser", fields: [fromUserId], references: [id])
+
+  toUserId Int
+  toUser   User @relation("MessageToUser", fields: [toUserId], references: [id])
+
+  content String
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([readAt])
+}
+
+// ============================================================
+// MANY-TO-MANY: PRODUCTS <-> CATEGORIES
+// ============================================================
+
+model ProductsCategories {
+  product_id  Int
+  category_id Int
+
+  product  Product  @relation(fields: [product_id], references: [id])
+  category Category @relation(fields: [category_id], references: [id])
+
+  @@id([product_id, category_id])
+  @@index([category_id])
+}
+
+// ============================================================
+// MANY-TO-MANY: PERMISSIONS <-> ROLES
+// ============================================================
+
+model PermissionsRoles {
+  permission_id Int
+  role_id       Int
+
+  permission Permission @relation(fields: [permission_id], references: [id])
+  role       Role       @relation(fields: [role_id], references: [id])
+
+  @@id([permission_id, role_id])
+  @@index([role_id])
+}
+
+// ============================================================
+// MANY-TO-MANY: SKUS <-> VARIANT OPTIONS
+// ============================================================
+
+model SkusVariantOptions {
+  sku_id            Int
+  variant_option_id Int
+
+  sku           SKU           @relation(fields: [sku_id], references: [id])
+  variantOption VariantOption @relation(fields: [variant_option_id], references: [id])
+
+  @@id([sku_id, variant_option_id])
+  @@index([variant_option_id])
+}
