@@ -5,6 +5,7 @@ import { StringValue } from 'ms';
 import { TokenPayload } from '../types/token.type.js';
 import { PrismaService } from './prisma.service.js';
 import { RefreshResDTO } from '../../routes/auth/auth.dto.js';
+import { isNotFoundRecordError } from '../helper.js';
 
 @Injectable()
 export class TokenService {
@@ -42,37 +43,58 @@ export class TokenService {
   }
 
   async generateRefreshToken(refreshToken: string): Promise<RefreshResDTO> {
+    const decodeRefreshToken = await this.verifyRefreshToken(refreshToken);
+
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      this.signAccessToken({ userId: decodeRefreshToken.userId }),
+      this.signRefreshToken({ userId: decodeRefreshToken.userId }),
+    ]);
+
+    const decodeNewRefreshToken =
+      await this.verifyRefreshToken(newRefreshToken);
+
     try {
-      const today = new Date();
-      today.setDate(today.getDate() + 29); // tối đa 30 ngày
-      const decodeRefreshToken = await this.verifyRefreshToken(refreshToken);
-
-      // remove refresh token old
-      await this.prismaService.refreshToken.delete({
-        where: { token: refreshToken },
-      });
-
-      const [newAccessToken, newRefreshToken] = await Promise.all([
-        this.signAccessToken({ userId: decodeRefreshToken.userId }),
-        this.signRefreshToken({ userId: decodeRefreshToken.userId }),
-      ]);
-
       //update refresh token into database
-      await this.prismaService.refreshToken.create({
-        data: {
-          token: newRefreshToken,
-          userId: decodeRefreshToken.userId,
-          expiresAt: today,
+      await this.rotateRefreshToken({
+        oldToken: refreshToken,
+        newToken: newRefreshToken,
+        userId: decodeRefreshToken.userId,
+        expiresAt: new Date(decodeNewRefreshToken.exp * 1000),
+      });
+    } catch (err) {
+      if (isNotFoundRecordError(err)) {
+        throw new UnauthorizedException('Refresh token is revoked');
+      }
+      throw err;
+    }
+
+    return {
+      userId: decodeRefreshToken.userId,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  async rotateRefreshToken(params: {
+    oldToken: string;
+    newToken: string;
+    userId: number;
+    expiresAt: Date;
+  }) {
+    return this.prismaService.$transaction(async (tx) => {
+      await tx.refreshToken.delete({
+        where: {
+          token: params.oldToken,
         },
       });
 
-      return {
-        userId: decodeRefreshToken.userId,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      };
-    } catch (err) {
-      throw new UnauthorizedException('Unauthorized token');
-    }
+      return tx.refreshToken.create({
+        data: {
+          token: params.newToken,
+          userId: params.userId,
+          expiresAt: params.expiresAt,
+        },
+      });
+    });
   }
 }

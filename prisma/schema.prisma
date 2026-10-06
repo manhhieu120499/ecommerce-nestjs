@@ -33,6 +33,7 @@ enum VerificationCodeType {
 enum UserStatus {
   ACTIVE
   BLOCKED
+  INACTIVE
 }
 
 enum HTTPMethod {
@@ -56,7 +57,7 @@ model User {
   password    String
   phoneNumber String
   avatar      String?
-  totpSecret  String?
+  topSecret  String?
   status      UserStatus @default(ACTIVE)
 
   roleId Int
