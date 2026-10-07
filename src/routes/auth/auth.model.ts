@@ -1,7 +1,10 @@
 import z from 'zod';
-import { UserStatus } from '../../shared/types/auth.type.js';
+import {
+  UserStatus,
+  VerificationCodeConstant,
+} from '../../shared/types/auth.type.js';
 
-const UserSchema = z
+export const UserSchema = z
   .object({
     id: z.number(),
     email: z.email({ error: 'Email is string' }),
@@ -25,7 +28,7 @@ const UserSchema = z
       .min(10, { error: 'Password must have greater than 10 character' }),
   });
 
-const RegisterUserSchema = UserSchema.pick({
+export const RegisterUserSchema = UserSchema.pick({
   email: true,
   name: true,
   password: true,
@@ -36,6 +39,10 @@ const RegisterUserSchema = UserSchema.pick({
     confirmPassword: z
       .string({ error: 'Password is string' })
       .min(10, { error: 'Password must have greater than 10 character' }),
+    code: z.string({ error: 'Code is required and string' }),
+    type: z.enum(VerificationCodeConstant, {
+      error: 'type must be REGISTER OR FORGOT_PASSWORD',
+    }),
   })
   .strict()
   .superRefine(({ confirmPassword, password }, ctx) => {
@@ -54,6 +61,51 @@ const TokenSchema = z.object({
   expiresAt: z.date({ error: 'Expired is required and after today' }),
 });
 
+const VerificationCodeSchema = z.object({
+  id: z.number({ error: 'id is required and number' }),
+  email: z.email({ error: 'email is required and string' }),
+  code: z.string({ error: 'code is required and string' }).min(6).max(50),
+  type: z.nativeEnum(VerificationCodeConstant),
+  expiresAt: z.date({ error: 'expiresAt is required and date' }),
+  createdAt: z.date({ error: 'expiresAt is required and date' }),
+});
+
+export const CredentialSchema = UserSchema.pick({
+  email: true,
+  password: true,
+}).strict();
+
+export const SendOTPSchema = VerificationCodeSchema.pick({
+  email: true,
+  type: true,
+}).strict();
+
+export const ResendOTPSchema = VerificationCodeSchema.pick({
+  email: true,
+  type: true,
+  code: true,
+}).strict();
+
+const CreateUserSchema = UserSchema.pick({
+  email: true,
+  password: true,
+  name: true,
+  phoneNumber: true,
+  roleId: true,
+}).strict();
+
+export const CredentialResSchema = z
+  .object({
+    userId: z.number({ error: 'UserId is required and type number' }),
+    email: z.email({ error: 'Email is required and type email' }),
+    accessToken: z.string({ error: 'AccessToken is required and type string' }),
+    refreshToken: z.string({
+      error: 'AccessToken is required and type string',
+    }),
+  })
+  .strict();
+
 export type UserType = z.infer<typeof UserSchema>;
-export type RegisterUserType = z.infer<typeof RegisterUserSchema>;
+export type CreateUserType = z.infer<typeof CreateUserSchema>;
 export type TokenType = z.infer<typeof TokenSchema>;
+export type VerificationCodeType = z.infer<typeof VerificationCodeSchema>;

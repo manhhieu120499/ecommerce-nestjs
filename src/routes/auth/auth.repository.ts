@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/services/prisma.service.js';
-import { RegisterUserType, TokenType, UserType } from './auth.model.js';
+import {
+  CreateUserType,
+  TokenType,
+  UserType,
+  VerificationCodeType,
+} from './auth.model.js';
+import { VerificationCodeTypeConstant } from '../../shared/types/auth.type.js';
 
 @Injectable()
 export class AuthRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async createUser(
-    data: RegisterUserType,
-  ): Promise<Omit<UserType, 'password'>> {
+  async createUser(data: CreateUserType): Promise<Omit<UserType, 'password'>> {
     const user = await this.prismaService.user.create({
       data: {
         email: data.email,
@@ -24,10 +28,6 @@ export class AuthRepository {
     });
 
     return user;
-  }
-
-  async findUser(email: string): Promise<UserType | null> {
-    return await this.prismaService.user.findUnique({ where: { email } });
   }
 
   async createToken(data: TokenType): Promise<TokenType> {

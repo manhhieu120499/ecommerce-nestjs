@@ -25,7 +25,7 @@ export class AccessTokenGuard implements CanActivate {
 
       return true;
     } catch (err) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(err);
     }
   }
 }

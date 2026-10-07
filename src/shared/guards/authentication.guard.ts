@@ -1,9 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import {
-  AuthType,
-  AuthTypeConstant,
-  ConditionGuard,
-} from '../types/auth.type.js';
+import { AuthTypeConstant, ConditionGuard } from '../types/auth.type.js';
 import { AccessTokenGuard } from './access-token.guard.js';
 import { ApiKeyGuard } from './api-key.guard.js';
 import { Reflector } from '@nestjs/core';
